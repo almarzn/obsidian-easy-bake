@@ -1,19 +1,10 @@
-import {
-  App,
-  FileSystemAdapter,
-  Platform,
-  TFile,
-  parseLinktext,
-  resolveSubpath,
-} from 'obsidian';
+import { App, FileSystemAdapter, Platform, TFile, parseLinktext, resolveSubpath } from 'obsidian';
+
+
 
 import { BakeSettings } from './main';
-import {
-  applyIndent,
-  extractSubpath,
-  sanitizeBakedContent,
-  stripFirstBullet,
-} from './util';
+import { applyIndent, extractSubpath, reindexNotes, sanitizeBakedContent, stripFirstBullet } from './util';
+
 
 const lineStartRE = /(?:^|\n) *$/;
 const listLineStartRE = /(?:^|\n)([ \t]*)(?:[-*+]|[0-9]+[.)]) +$/;
@@ -55,6 +46,8 @@ export async function bake(
   // This helps us keep track of edits we make to the text and sync them with
   // position data held in the metadata cache
   let posOffset = 0;
+  let footnoteIndex = 1;
+
   for (const target of targets) {
     const { path, subpath } = parseLinktext(target.link);
     const linkedFile = metadataCache.getFirstLinkpathDest(path, file.path);
@@ -103,12 +96,15 @@ export async function bake(
 
     // Recurse and bake the linked file...
     const baked = sanitizeBakedContent(
-      await bake(app, linkedFile, subpath, newAncestors, settings)
+      reindexNotes(
+        await bake(app, linkedFile, subpath, newAncestors, settings),
+        () => String(footnoteIndex++)
+      )
     );
     replaceTarget(
       listMatch ? applyIndent(stripFirstBullet(baked), listMatch[1]) : baked
     );
   }
 
-  return text;
+  return text
 }

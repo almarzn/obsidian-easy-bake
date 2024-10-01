@@ -3,6 +3,7 @@ import {
   CachedMetadata,
   HeadingSubpathResult,
 } from 'obsidian';
+import {transform} from "esbuild";
 
 export const wordCountRE = /\P{Z}*[\p{L}\p{N}]\P{Z}*/gu;
 export const commentRE = /(?:<!--[\s\S]*?-->|%%[\s\S]*?(?!%%)[\s\S]+?%%)/g;
@@ -45,6 +46,27 @@ export function stripBlockId(text: string) {
 export function stripFrontmatter(text: string) {
   if (!text) return text;
   return text.replace(/^---[\s\S]+?\r?\n---(?:\r?\n\s*|$)/, '');
+}
+
+export function reindexNotes(text: string, next: () => string) {
+  const references: Record<string, string> = {};
+
+  return text.replace(/^\[\^(\S+?)]: /gm, (_, value) => {
+    if (references[value]) {
+      throw new Error(`Duplicate reference '${value}'`);
+    }
+
+    const nextKey = next();
+    references[value] = nextKey;
+
+    return `[^${nextKey}]: `;
+  }).replace(/(?!^)\[\^(\S+?)]/gm, (_, value) => {
+    if (!references[value]) {
+      throw new Error(`Missing reference '${value}'`);
+    }
+
+    return `[^${references[value]}]`;
+  });
 }
 
 export function sanitizeBakedContent(text: string) {
