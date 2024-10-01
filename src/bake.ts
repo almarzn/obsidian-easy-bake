@@ -95,14 +95,19 @@ export async function bake(
     }
 
     // Recurse and bake the linked file...
-    const baked = sanitizeBakedContent(
-      reindexNotes(
-        await bake(app, linkedFile, subpath, newAncestors, settings),
-        () => String(footnoteIndex++)
-      )
-    );
+    let baked: string;
+    try {
+      baked = sanitizeBakedContent(
+        reindexNotes(
+          await bake(app, linkedFile, subpath, newAncestors, settings),
+          () => String(footnoteIndex++)
+        )
+      );
+    } catch (e) {
+      throw new Error(`Error in '${subpath}': ${e.message}`);
+    }
     replaceTarget(
-      listMatch ? applyIndent(stripFirstBullet(baked), listMatch[1]) : baked
+        listMatch ? applyIndent(stripFirstBullet(baked), listMatch[1]) : baked
     );
   }
 
