@@ -1,14 +1,26 @@
-import { App, FileSystemAdapter, Platform, TFile, parseLinktext, resolveSubpath } from 'obsidian';
-
-
+import {
+  App,
+  FileSystemAdapter,
+  Platform,
+  TFile,
+  parseLinktext,
+  resolveSubpath,
+} from 'obsidian';
 
 import { BakeSettings } from './main';
-import { applyIndent, extractSubpath, reindexNotes, sanitizeBakedContent, stripFirstBullet } from './util';
-
+import {
+  applyIndent,
+  extractSubpath,
+  reindexNotes,
+  sanitizeBakedContent,
+  stripFirstBullet,
+} from './util';
 
 const lineStartRE = /(?:^|\n) *$/;
 const listLineStartRE = /(?:^|\n)([ \t]*)(?:[-*+]|[0-9]+[.)]) +$/;
 const lineEndRE = /^ *(?:\r?\n|$)/;
+const remainingEmbed = /!\[\[[\s\w]+?#\^$/;
+const lastBracket = /][^\]]*$/
 
 export async function bake(
   app: App,
@@ -57,15 +69,20 @@ export async function bake(
     const start = target.position.start.offset + posOffset;
     const end = target.position.end.offset + posOffset;
     const prevLen = end - start;
-
-    const before = text.substring(0, start);
-    const after = text.substring(end);
+    let hasRemovedEmbed = false;
+    const before = text.substring(0, start).replace(remainingEmbed, () => {
+      hasRemovedEmbed = true;
+      return '';
+    });
+    const after = hasRemovedEmbed ? text.substring(
+        text.substring(0, end).lastIndexOf(']') + 1
+    ) : text.substring(end);
 
     const listMatch = settings.bakeInList
       ? before.match(listLineStartRE)
       : null;
     const isInline =
-      !(listMatch || lineStartRE.test(before)) || !lineEndRE.test(after);
+      (!(listMatch || lineStartRE.test(before)) || !lineEndRE.test(after));
     const isMarkdownFile = linkedFile.extension === 'md';
 
     const replaceTarget = (replacement: string) => {
@@ -107,9 +124,9 @@ export async function bake(
       throw new Error(`Error in '${subpath}': ${e.message}`);
     }
     replaceTarget(
-        listMatch ? applyIndent(stripFirstBullet(baked), listMatch[1]) : baked
+      listMatch ? applyIndent(stripFirstBullet(baked), listMatch[1]) : baked
     );
   }
 
-  return text
+  return text;
 }
